@@ -1,217 +1,154 @@
 # Sahayak — Offline-Capable Multilingual AI Tutor
 
-> Photograph a textbook page → get a grade-appropriate explanation and a
-> 3-question practice quiz in your language. Requests made offline are
-> queued and answered when you reconnect.
+Photograph a textbook page and get a grade-appropriate explanation with a 3-question practice quiz in your preferred language. Requests made offline are queued and processed when you reconnect.
 
 Built for the **BharatCode Build League** hackathon.
 
----
+## How It Works
 
-## How it works — 4-step harness
+Sahayak follows a four-step workflow:
 
-| Step | What happens |
-|------|-------------|
-| **1. Extract** | Image → structured text via BharatCode vision model; subject & source language detected. If vision fails, UI prompts manual text entry. |
-| **2. Explain** | `callModel()` with `SYSTEM_EXPLAIN` prompt; enforces target language, grade reading level, short paragraphs, one worked example. |
-| **3. Quiz** | `callModel()` with `SYSTEM_QUIZ` prompt; strict JSON schema; validated with Zod; retried once on parse failure. |
-| **4. Cache** | Result stored in IndexedDB keyed by SHA-256(`image|language|grade`). Identical requests resolve instantly from cache. |
+| Step | Process | Description |
+|---|---|---|
+| **1. Extract** | Image to text | Uses the BharatCode vision model to extract textbook content and identify the subject and source language. If image extraction fails, the user can enter the text manually. |
+| **2. Explain** | AI explanation | Uses `SYSTEM_EXPLAIN` to generate grade-appropriate explanations in the selected language, with short paragraphs and a worked example. |
+| **3. Quiz** | Practice questions | Uses `SYSTEM_QUIZ` to generate a 3-question quiz in JSON format. Responses are validated using Zod and retried once if parsing fails. |
+| **4. Cache** | Offline storage | Stores results in IndexedDB using a SHA-256 key based on the image, language, and grade. Identical requests can be served instantly from cache. |
 
----
+## Model Usage
 
-## Model usage
+| Feature | Model | Implementation |
+|---|---|---|
+| Explanation | `BHARATCODE_MODEL` environment variable | `lib/bharatcode.ts` |
+| Quiz generation | `BHARATCODE_MODEL` environment variable | `lib/bharatcode.ts` |
+| OCR / Vision | `BHARATCODE_MODEL` environment variable | `lib/extract.ts` |
+| Fallback OCR | Manual text entry | `lib/extract.ts` |
 
-| Path | Model | File |
-|------|-------|------|
-| Explain | `BHARATCODE_MODEL` env var (BharatCode API) | `lib/bharatcode.ts` |
-| Quiz | `BHARATCODE_MODEL` env var (BharatCode API) | `lib/bharatcode.ts` |
-| OCR / vision | `BHARATCODE_MODEL` env var — same model, vision call | `lib/extract.ts` |
-| Fallback OCR | None (UI prompts manual entry instead) | `lib/extract.ts` |
+All model requests go through `lib/bharatcode.ts` using the shared `callModel()` function.
 
-**No hidden substitutions.** Every model call goes through `lib/bharatcode.ts → callModel()`. Any future fallback must be documented here.
+There are no undocumented model substitutions or hidden fallbacks.
 
-> See `docs/adaption.md` for how to swap in a fine-tuned Hindi model.
-
----
+See `docs/adaption.md` for instructions on integrating a fine-tuned Hindi model.
 
 ## Setup
 
+### 1. Clone the repository
+
 ```bash
-# 1. Clone the repo
 git clone https://github.com/<your-username>/sahayak.git
 cd sahayak
+```
 
-# 2. Copy env template and fill in real values
-cp .env.example .env
-# Edit .env — add BHARATCODE_API_KEY, confirm BHARATCODE_BASE_URL and BHARATCODE_MODEL
+### 2. Configure environment variables
 
-# 3. Install dependencies
+Create a `.env.local` file in the project root:
+
+```env
+BHARATCODE_API_KEY=your_api_key
+BHARATCODE_BASE_URL=https://bharatcode.ai/api/model/v1
+BHARATCODE_MODEL=qwen-3.8-27b
+BHARATCODE_TIMEOUT_MS=10000
+```
+
+Replace the API key and model identifier with values available to your BharatCode account.
+
+### 3. Install dependencies
+
+```bash
 npm install
+```
 
-# 4. Run the dev server
+### 4. Start the development server
+
+```bash
 npm run dev
-# → open http://localhost:3000
 ```
 
-### Environment variables
+Open [http://localhost:3000](http://localhost:3000).
+
+## Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `BHARATCODE_API_KEY` | ✅ Yes | Your BharatCode API key (keep secret) |
-| `BHARATCODE_BASE_URL` | ✅ Yes | BharatCode API base URL (e.g. `https://api.bharatcode.ai/v1`) |
-| `BHARATCODE_MODEL` | ✅ Yes | Model identifier (e.g. `qwen-3.8-27b`) |
-| `BHARATCODE_TIMEOUT_MS` | No | Request timeout in ms (default: `30000`) |
+| `BHARATCODE_API_KEY` | Yes | BharatCode API key. Keep this secret. |
+| `BHARATCODE_BASE_URL` | Yes | BharatCode API base URL. |
+| `BHARATCODE_MODEL` | Yes | Model identifier available to your account. |
+| `BHARATCODE_TIMEOUT_MS` | No | Request timeout in milliseconds. Defaults to `10000` (10 seconds). |
 
-> `lib/env.ts` validates all required vars at startup and throws a clear error if any is missing.
+Environment variables are validated by `lib/env.ts`. The application throws an error if a required variable is missing.
 
----
+For deployment, configure these variables in your hosting provider's environment variable settings.
 
-## Project structure
+## Project Structure
 
-```
+```text
 app/
-  page.tsx                  ← Single-screen UI
-  layout.tsx                ← PWA metadata + service worker registrar
+  page.tsx
+  layout.tsx
   api/
-    health/route.ts         ← GET /api/health — env validation check
-    explain/route.ts        ← POST /api/explain — 4-step harness
+    health/
+      route.ts
+    explain/
+      route.ts
+
 components/
-  UploadCard.tsx            ← Image upload, language/grade selectors
-  ResultView.tsx            ← Explanation + quiz with reveal
-  OfflineBanner.tsx         ← Offline status banner
-  ServiceWorkerRegistrar.tsx← Registers public/sw.js
+  UploadCard.tsx
+  ResultView.tsx
+  OfflineBanner.tsx
+  ServiceWorkerRegistrar.tsx
+
 lib/
-  bharatcode.ts             ← callModel() — single BharatCode client
-  env.ts                    ← Env var validation at startup
-  extract.ts                ← Step 1: image → page text
-  prompts.ts                ← All LLM prompts with design comments
-  queue.ts                  ← IndexedDB offline queue + result cache
-  types.ts                  ← Shared TypeScript types
+  bharatcode.ts
+  env.ts
+  extract.ts
+  prompts.ts
+  queue.ts
+  types.ts
+
 public/
-  sw.js                     ← Service worker (shell cache + online drain)
-  manifest.json             ← PWA manifest
-  favicon.svg               ← SVG favicon (saffron + "स")
+  sw.js
+  manifest.json
+  favicon.svg
+
 docs/
-  adaption.md               ← How to swap in a fine-tuned model
-BharatCode.txt              ← Hackathon required file
+  adaption.md
+
+BharatCode.txt
 ```
 
----
+## PWA and Offline Behaviour
 
-## PWA / Offline behaviour
+Sahayak supports offline usage through a Progressive Web App (PWA) architecture.
 
-1. **Online** — requests go straight to `/api/explain`.
-2. **Offline** — image + settings stored in IndexedDB (`lib/queue.ts`).  
-   Banner reads: *"Saved — will answer when you reconnect."*
-3. **Reconnect** — service worker fires `SAHAYAK_ONLINE` message →  
-   `drainQueue()` processes all pending items automatically.
-4. **Cache hit** — same image + language + grade → instant result, no API call.
+1. **Online:** Requests are sent directly to `/api/explain`.
+2. **Offline:** Images and request settings are saved in an IndexedDB queue.
+3. **Reconnect:** The service worker sends a `SAHAYAK_ONLINE` message, triggering `drainQueue()` to process pending requests.
+4. **Cache hit:** Previously processed requests with the same image, language, and grade return instantly without another API call.
 
----
+The interface displays a notification when a request is saved for later processing.
 
 ## Security
 
-- API key is read **only** from `process.env.BHARATCODE_API_KEY`.
-- `.env` is in `.gitignore` from the first commit. Only `.env.example` is committed.
-- `lib/bharatcode.ts` redacts the `Authorization` header value in any log output.
-- `lib/env.ts` throws a clear error if the key is missing — it is never silently `undefined`.
+- API keys are accessed exclusively through server-side environment variables.
+- `.env` and `.env.local` are excluded from Git using `.gitignore`.
+- Only `.env.example` is committed to the repository.
+- Authorization headers are redacted in development logs.
+- API keys are never exposed through `NEXT_PUBLIC_` variables.
+- `lib/env.ts` validates required configuration rather than silently accepting missing credentials.
 
----
+## Hackathon Notes
 
-## Hackathon notes
+- **Project:** Sahayak — Offline-Capable Multilingual AI Tutor
+- **Event:** BharatCode Build League
+- **Model provider:** BharatCode API
+- **API client:** OpenAI-compatible chat completions
+- **Architecture:** Next.js application with server-side API routes and client-side IndexedDB storage
+- **Database:** No external database required
+- **Authentication:** No user accounts required
+- **Offline support:** Service worker and IndexedDB
 
-> No secrets are committed; the repo passes the hackathon's no-secrets rule.
-
-- Model: BharatCode API — see `BharatCode.txt` in repo root.
-- No database, no accounts, no payments — everything is client-side except model calls.
-- One screen, no routing complexity.
-- Fully offline-capable via PWA service worker + IndexedDB queue.
-
----
-
-## License
-
-MIT
-
-# → open http://localhost:3000
-```
-
-### Environment variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `BHARATCODE_API_KEY` | ✅ Yes | Your BharatCode API key (keep secret) |
-| `BHARATCODE_BASE_URL` | ✅ Yes | BharatCode API base URL (e.g. `https://api.bharatcode.ai/v1`) |
-| `BHARATCODE_MODEL` | ✅ Yes | Model identifier (e.g. `qwen-3.8-27b`) |
-| `BHARATCODE_TIMEOUT_MS` | No | Request timeout in ms (default: `30000`) |
-
-> `lib/env.ts` validates all required vars at startup and throws a clear error if any is missing.
-
----
-
-## Project structure
-
-```
-app/
-  page.tsx                  ← Single-screen UI
-  layout.tsx                ← PWA metadata + service worker registrar
-  api/
-    health/route.ts         ← GET /api/health — env validation check
-    explain/route.ts        ← POST /api/explain — 4-step harness
-components/
-  UploadCard.tsx            ← Image upload, language/grade selectors
-  ResultView.tsx            ← Explanation + quiz with reveal
-  OfflineBanner.tsx         ← Offline status banner
-  ServiceWorkerRegistrar.tsx← Registers public/sw.js
-lib/
-  bharatcode.ts             ← callModel() — single BharatCode client
-  env.ts                    ← Env var validation at startup
-  extract.ts                ← Step 1: image → page text
-  prompts.ts                ← All LLM prompts with design comments
-  queue.ts                  ← IndexedDB offline queue + result cache
-  types.ts                  ← Shared TypeScript types
-public/
-  sw.js                     ← Service worker (shell cache + online drain)
-  manifest.json             ← PWA manifest
-  favicon.svg               ← SVG favicon (saffron + "स")
-docs/
-  adaption.md               ← How to swap in a fine-tuned model
-BharatCode.txt              ← Hackathon required file
-```
-
----
-
-## PWA / Offline behaviour
-
-1. **Online** — requests go straight to `/api/explain`.
-2. **Offline** — image + settings stored in IndexedDB (`lib/queue.ts`).  
-   Banner reads: *"Saved — will answer when you reconnect."*
-3. **Reconnect** — service worker fires `SAHAYAK_ONLINE` message →  
-   `drainQueue()` processes all pending items automatically.
-4. **Cache hit** — same image + language + grade → instant result, no API call.
-
----
-
-## Security
-
-- API key is read **only** from `process.env.BHARATCODE_API_KEY`.
-- `.env` is in `.gitignore` from the first commit. Only `.env.example` is committed.
-- `lib/bharatcode.ts` redacts the `Authorization` header value in any log output.
-- `lib/env.ts` throws a clear error if the key is missing — it is never silently `undefined`.
-
----
-
-## Hackathon notes
-
-> No secrets are committed; the repo passes the hackathon's no-secrets rule.
-
-- Model: BharatCode API — see `BharatCode.txt` in repo root.
-- No database, no accounts, no payments — everything is client-side except model calls.
-- One screen, no routing complexity.
-- Fully offline-capable via PWA service worker + IndexedDB queue.
-
----
+See `BharatCode.txt` in the repository root for the hackathon-related information.
 
 ## License
 
-MIT
+MIT License
