@@ -90,7 +90,7 @@ export default function Home() {
           if (json.subscriptionRequired) {
             setErrorKind("subscription");
             setActionUrl(json.actionUrl ?? "https://bharatcode.ai/account");
-            setErrorMsg(json.message ?? "Subscription required.");
+            setErrorMsg(json.error ?? "Subscription required.");
             setState("error");
             return;
           }
