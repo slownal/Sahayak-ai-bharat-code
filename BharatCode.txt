@@ -1,0 +1,24 @@
+Project: Sahayak — Offline-Capable Multilingual AI Tutor
+Built for: BharatCode Build League
+
+What it does:
+Photograph a textbook page and get a grade-appropriate explanation and
+practice quiz in English, Hindi, or a configured regional language —
+even when offline (requests queue and resolve on reconnect).
+
+BharatCode usage:
+All explain and quiz model calls go through lib/bharatcode.ts.
+Model selected via BHARATCODE_MODEL. OCR/vision is abstracted in
+lib/extract.ts and documented in the README "Model usage" section.
+
+Harness workflow:
+1. Extract  — image -> structured page text (subject + language detected)
+2. Explain  — system prompt enforces target language + grade reading level
+3. Quiz     — strict-JSON call, validated, retried once on parse failure
+4. Cache    — results stored in IndexedDB keyed by content hash
+
+Adaption-ready:
+docs/adaption.md describes how a fine-tuned Hindi explain model would be
+swapped in via the BHARATCODE_MODEL env var. No fine-tuning is bundled.
+
+Source: public GitHub repo. No secrets committed.

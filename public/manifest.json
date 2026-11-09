@@ -1,0 +1,14 @@
+{
+  "name": "Sahayak",
+  "short_name": "Sahayak",
+  "description": "AI Tutor for Indian Students — explains textbook pages in your language",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fffbeb",
+  "theme_color": "#FF9933",
+  "icons": [],
+  "categories": ["education"],
+  "lang": "hi",
+  "dir": "ltr"
+}
