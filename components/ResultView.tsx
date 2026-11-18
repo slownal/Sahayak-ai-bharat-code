@@ -89,9 +89,9 @@ function QuizCard({
         )}
       </button>
 
-      {revealed && (
+      /* {revealed && (
         <p className="text-sm text-gray-600 bg-blue-50 rounded-lg px-3 py-2 border border-blue-100">
-          💡 {question.explanation}
+          💡 {question.explanation} */
         </p>
       )}
     </div>
